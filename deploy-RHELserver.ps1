@@ -125,7 +125,7 @@ function deploy-rhelserver {
          
         New-HPOVServerProfile -Name $name -ServerProfileTemplate $spt -Server $server -OSDeploymentAttributes $My_osCustomAttributes  -AssignmentType server -ErrorAction Stop | Wait-HPOVTaskComplete | Out-Null
                
-        Start-HPOVServer $server | out-null
+        Get-HPOVServerProfile -Name $name | Start-HPOVServer | Out-Null
         
         $ip = (get-hpovserverprofile -Name $name).osDeploymentSettings.osCustomAttributes | ? name -eq Team0NIC1.ipaddress | % value
 
