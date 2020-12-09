@@ -31,7 +31,7 @@ function getenclosure {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials | out-null
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -41,7 +41,7 @@ function getenclosure {
         return $result | ConvertTo-Json
     }
 
-    #import-HPOVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
+    #import-OVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
 
     # Added these lines to avoid the error: "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
     # due to an invalid Remote Certificate
@@ -63,7 +63,7 @@ function getenclosure {
     # $name = "Frame2, bay 2"
     
     Try {
-        $frame = Get-HPOVEnclosure -name $name -ErrorAction Stop
+        $frame = Get-OVEnclosure -name $name -ErrorAction Stop
 
         #state
         $state = $frame.State
@@ -73,14 +73,14 @@ function getenclosure {
 
         # LE Name
         $logicalEnclosureUri = $frame.logicalEnclosureUri
-        If ($logicalEnclosureUri) { $logicalEnclosureName = (send-HPOVRequest -uri $logicalEnclosureUri).name } Else { $logicalEnclosureName = "None" }
+        If ($logicalEnclosureUri) { $logicalEnclosureName = (send-OVRequest -uri $logicalEnclosureUri).name } Else { $logicalEnclosureName = "None" }
         
         #serialNumber
         $serialNumber = $frame.serialNumber
         
         # EnvironmentalConfiguration 
         $frameuri = $frame.Uri 
-        $utilization = (Send-HPOVRequest -Uri "$($frameUri)/utilization").metricList       
+        $utilization = (Send-OVRequest -Uri "$($frameUri)/utilization").metricList       
      
         $AmbientTemperature = (($utilization | ? metricname -eq AmbientTemperature).metricSamples)
         $AmbientTemperaturesize = (($utilization | ? metricname -eq AmbientTemperature).metricSamples).count
@@ -146,8 +146,8 @@ function getenclosure {
             $AmbientTemperatureAverage, `
             $PeakPowerAverage, `
             $AveragePowerAverage, `
-            ( & { if ($appliances) { "*Management Appliances*:`n" + (( $appliances.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.value) : ``$($_.name)``" }) -join "`n") } else { "*Management Appliances*: -" } } ), `
-            ( & { if ($interconnects) { "*Interconnect Modules*:`n" + (( $interconnects.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.name) : $($_.value)" }) -join "`n") } else { "*Interconnect Modules*: -" } } )
+        ( & { if ($appliances) { "*Management Appliances*:`n" + (( $appliances.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.value) : ``$($_.name)``" }) -join "`n") } else { "*Management Appliances*: -" } } ), `
+        ( & { if ($interconnects) { "*Interconnect Modules*:`n" + (( $interconnects.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.name) : $($_.value)" }) -join "`n") } else { "*Interconnect Modules*: -" } } )
             
 
         

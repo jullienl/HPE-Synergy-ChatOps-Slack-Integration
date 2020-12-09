@@ -31,7 +31,7 @@ function getsh {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials | out-null
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -41,7 +41,7 @@ function getsh {
         return $result | ConvertTo-Json
     }
 
-    #import-HPOVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
+    #import-OVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
 
     # Added these lines to avoid the error: "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
     # due to an invalid Remote Certificate
@@ -63,7 +63,7 @@ function getsh {
     # $name = "Frame2, bay 2"
     
     Try {
-        $sh = Get-HPOVServer -name $name -ErrorAction Stop
+        $sh = Get-OVServer -name $name -ErrorAction Stop
 
         $serverName = $sh.serverName
         
@@ -72,7 +72,7 @@ function getsh {
 
         # SP Name
         $serverProfileUri = $sh.serverProfileUri
-        If ($serverprofileuri) { $serverProfileName = (send-HPOVRequest -uri $serverProfileUri).name } Else { $serverProfileName = "None" }
+        If ($serverprofileuri) { $serverProfileName = (send-OVRequest -uri $serverProfileUri).name } Else { $serverProfileName = "None" }
                 
         # Power
         $powerState = $sh.powerState
@@ -93,7 +93,7 @@ function getsh {
         $processorCoreCount = $sh.processorCoreCount
         
         #memoryMb
-        $memoryGB = $sh.memoryMb/1024
+        $memoryGB = $sh.memoryMb / 1024
 
 
         # Device Slots
@@ -114,29 +114,29 @@ function getsh {
         # EnvironmentalConfiguration 
         
         $shuri = $sh.Uri 
-        $utilization = (Send-HPOVRequest -Uri "$($shUri)/utilization").metricList
+        $utilization = (Send-OVRequest -Uri "$($shUri)/utilization").metricList
         
         $AmbientTemperature = (($utilization | ? metricname -eq AmbientTemperature).metricSamples)
         $AmbientTemperaturesize = (($utilization | ? metricname -eq AmbientTemperature).metricSamples).count
-        $total1=$Null
+        $total1 = $Null
         for ($i = 0; $i -lt $AmbientTemperaturesize; $i++) {
             $total1 += $AmbientTemperature[$i][1]
         }
-        $AmbientTemperatureAverage = [math]::round(($total1/$AmbientTemperaturesize),1)
+        $AmbientTemperatureAverage = [math]::round(($total1 / $AmbientTemperaturesize), 1)
 
         $CpuUtilization = (($utilization | ? metricname -eq CpuUtilization).metricSamples)
         $CpuUtilizationsize = (($utilization | ? metricname -eq CpuUtilization).metricSamples).count
         for ($i = 0; $i -lt $CpuUtilizationsize; $i++) {
             $total2 += $CpuUtilization[$i][1]
         }
-        $CpuUtilizationAverage = [math]::round($total2/$CpuUtilizationsize,1)
+        $CpuUtilizationAverage = [math]::round($total2 / $CpuUtilizationsize, 1)
 
         $AveragePower = (($utilization | ? metricname -eq AveragePower).metricSamples)
         $AveragePowersize = (($utilization | ? metricname -eq AveragePower).metricSamples).count
         for ($i = 0; $i -lt $AveragePowersize; $i++) {
             $total3 += $AveragePower[$i][1]
         }
-        $AveragePowerAverage = [math]::round($total3/$AveragePowersize,1)
+        $AveragePowerAverage = [math]::round($total3 / $AveragePowersize, 1)
   
 
 
@@ -154,7 +154,7 @@ function getsh {
             $shortModel, `
             $mpIpAddress, `
             $romVersion, `
-            ( & { if ($devices) { "*Mezz cards*:`n" + (( $devices.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.value) : ``$($_.name)``" }) -join "`n") } else { "*Mezz cards:*: -" } } ), `
+        ( & { if ($devices) { "*Mezz cards*:`n" + (( $devices.GetEnumerator() | Sort-Object Name | % { " - Slot $($_.value) : ``$($_.name)``" }) -join "`n") } else { "*Mezz cards:*: -" } } ), `
             $AmbientTemperatureAverage, `
             $AveragePowerAverage, `
             $CpuUtilizationAverage

@@ -32,7 +32,7 @@ function getsp {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials | out-null
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -42,7 +42,7 @@ function getsp {
         return $result | ConvertTo-Json
     }
 
-    #import-HPOVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
+    #import-OVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
 
     # Added these lines to avoid the error: "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
     # due to an invalid Remote Certificate
@@ -64,31 +64,31 @@ function getsp {
     #$name = "win-1"
     # $name = "gen10"
     Try {
-        $sp = Get-HPOVServerProfile -name $name -ErrorAction Stop
+        $sp = Get-OVServerProfile -name $name -ErrorAction Stop
 
         $enclosureBay = $sp.enclosureBay
 
-        $enclosurename = (send-HPOVRequest -uri $sp.enclosureUri).name
+        $enclosurename = (send-OVRequest -uri $sp.enclosureUri).name
                 
         # SPT - consistency
         $spturi = $sp.serverProfileTemplateUri
         If ( $spturi ) {
-            $sptname = (send-HPOVRequest -uri $spturi).name 
+            $sptname = (send-OVRequest -uri $spturi).name 
             If ($sp.templateCompliance -eq "Compliant") { $consistency = "``Consistent``" } else { $consistency = "``Inconsistent``" }
         }
         
 
         # Power
         $serverHardwareUri = $sp.serverHardwareUri
-        $serverHardwarePowerState = "``$((send-HPOVRequest -uri $serverHardwareUri).powerState)``"
+        $serverHardwarePowerState = "``$((send-OVRequest -uri $serverHardwareUri).powerState)``"
 
         # OS Deployemnt
         $osdeploymenturi = $sp.osDeploymentSettings.osDeploymentPlanUri
-        If ($osdeploymenturi) { $osdeploymentname = (send-HPOVRequest -uri $osdeploymenturi).name } else { $osdeploymentname = "-" }
+        If ($osdeploymenturi) { $osdeploymentname = (send-OVRequest -uri $osdeploymenturi).name } else { $osdeploymentname = "-" }
 
         # FW
         $firmwareBaselineUri = $sp.firmware.firmwareBaselineUri
-        If ($firmwareBaselineUri) { $firmwareBaseline = (send-HPOVRequest -uri $firmwareBaselineUri).name } else { $firmwareBaseline = "-" }
+        If ($firmwareBaselineUri) { $firmwareBaseline = (send-OVRequest -uri $firmwareBaselineUri).name } else { $firmwareBaseline = "-" }
 
 
         # Network Connections         
@@ -98,7 +98,7 @@ function getsp {
             $_Connection = @{ }
             foreach ($connectionsetting in $connectionsettings) {
                 $connection1portID = " - $($connectionsetting.portId)"
-                $networkname_bandwidth = "``$((send-HPOVRequest -uri $connectionsetting.networkUri).name)`` - Allocated bandwidth: ``$($connectionsetting.allocatedMbps/1000)Gb``"
+                $networkname_bandwidth = "``$((send-OVRequest -uri $connectionsetting.networkUri).name)`` - Allocated bandwidth: ``$($connectionsetting.allocatedMbps/1000)Gb``"
                 $_connection.add($connection1portID, $networkname_bandwidth)
             }
         }
@@ -111,7 +111,7 @@ function getsp {
         If ($sanstoragevolumes) {
             foreach ($sanstoragevolume in $sanstoragevolumes) {
                 $sanstoragevolumelun = "LUN: ``$($sanstoragevolume.lun)``"
-                $sanstoragevolumename = "- ``$((send-HPOVRequest -uri $sanstoragevolume.volumeUri).name)``"
+                $sanstoragevolumename = "- ``$((send-OVRequest -uri $sanstoragevolume.volumeUri).name)``"
                 $_sanstorage.add($sanstoragevolumename, $sanstoragevolumelun)
             }
         }
@@ -126,7 +126,7 @@ function getsp {
                 $localstoragelogicaldrivename = "  - ``$($localstoragelogicaldrive.name)``"
                 $localstoragelogicaldriveraidlevel = "``$($localstoragelogicaldrive.raidlevel)``"
                 $localstoragelogicaldrivesnbofdrives = " - $($localstoragelogicaldrive.numPhysicalDrives) drive(s)"
-                If ($localstoragelogicaldrive.bootable -eq $True){ $localstoragelogicaldrivebootable = " - Bootable"}
+                If ($localstoragelogicaldrive.bootable -eq $True) { $localstoragelogicaldrivebootable = " - Bootable" }
 
                 $_localstorage.add($localstoragelogicaldrivename, $localstoragelogicaldriveraidlevel + $localstoragelogicaldrivesnbofdrives + $localstoragelogicaldrivebootable)
             }
@@ -149,17 +149,17 @@ function getsp {
                 $association1 = "SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION"
                 $uri = "/rest/index/associations?name={0}&parentUri={1}" -f $association1, $logicalJBODUri
 
-                $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION = (Send-HPOVRequest -Uri $Uri).members
+                $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION = (Send-OVRequest -Uri $Uri).members
 
                 Foreach ($SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION in $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION) {  
                
-                    $driveenclosurename = (Get-HPOVDriveEnclosure) | ? { $_.drivebays.uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri } | % name
+                    $driveenclosurename = (Get-OVDriveEnclosure) | ? { $_.drivebays.uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri } | % name
                 
-                    $drivecapacity = ((Get-HPOVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.capacity 
+                    $drivecapacity = ((Get-OVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.capacity 
 
-                    $drivestatus = ((Get-HPOVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.status
+                    $drivestatus = ((Get-OVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.status
 
-                    $drivebay = ((Get-HPOVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.driveLocation.locationEntries | ? type -eq Bay | % value
+                    $drivebay = ((Get-OVDriveEnclosure -name $driveenclosurename ).drivebays | ? uri -eq $SAS_LOGICAL_JBOD_TO_DRIVEBAYS_ASSOCIATION.childUri).drive.driveLocation.locationEntries | ? type -eq Bay | % value
              
                     $_drivesinfo += "   ``$($drivecapacity)GB`` - Location: ``$($driveenclosurename)`` in Slot ``$($drivebay)`` - Status: ``$drivestatus``"
 
@@ -195,7 +195,7 @@ function getsp {
         ( & { if ($_connection) { "*Network connections*:`n" + (( $_connection.GetEnumerator() | Sort-Object Name | % { " $($_.name) : $($_.value)" }) -join "`n") } else { "*Network connections*: -" } } ), `
         ( & { if ($_sanstorage) { "*SAN Storage*:`n" + (( $_sanstorage.GetEnumerator() | Sort-Object Name | % { " $($_.name) - $($_.value)" }) -join "`n") } else { "*SAN Storage*: -" } } ), `
         ( & { if ($_localstorage) { " - Logical drive(s):`n" + (( $_localstorage.GetEnumerator() | Sort-Object Name | % { " $($_.name) - $($_.value)" }) -join "`n") } else { " - Logical drive(s): -" } } ), `
-        ( & { if ($_localJBODstorage) {" - External logical JBOD(s):`n" + (( $_localJBODstorage.GetEnumerator() | Sort-Object Name | % { " $($_.name) - $($_.value)" }) -join "`n") } else { " - External logical JBOD(s): -" } } ), `
+        ( & { if ($_localJBODstorage) { " - External logical JBOD(s):`n" + (( $_localJBODstorage.GetEnumerator() | Sort-Object Name | % { " $($_.name) - $($_.value)" }) -join "`n") } else { " - External logical JBOD(s): -" } } ), `
             $osdeploymentname, `
             $firmwareBaseline, `
         ( & { if ($_biosSettings) { "*Bios Settings*: `n " + $_biosSettings }else { "*Bios Settings*: -" } })

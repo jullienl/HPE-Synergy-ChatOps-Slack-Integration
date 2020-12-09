@@ -31,7 +31,7 @@ function getspt {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials | out-null
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -41,7 +41,7 @@ function getspt {
         return $result | ConvertTo-Json
     }
 
-    #import-HPOVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
+    #import-OVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
 
     # Added these lines to avoid the error: "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
     # due to an invalid Remote Certificate
@@ -64,24 +64,24 @@ function getspt {
     #$name = "ESXi 6.5U2 deployment with Streamer"
     
     Try {
-        $spt = Get-HPOVServerProfileTemplate -name $name -ErrorAction Stop
+        $spt = Get-OVServerProfileTemplate -name $name -ErrorAction Stop
 
         $enclosureGroupuri = $spt.enclosureGroupUri
 
-        $enclosuregroupname = (send-HPOVRequest -uri $enclosureGroupuri).name
+        $enclosuregroupname = (send-OVRequest -uri $enclosureGroupuri).name
                 
         # SP - consistency   	
         $SPTUri = $spt.Uri
         $association = "server_profile_template_to_server_profiles"
         $uri = "/rest/index/associations?name={0}&parentUri={1}" -f $association, $SPTUri
 
-        $server_profile_template_to_server_profiles = (Send-HPOVRequest -Uri $Uri).members
+        $server_profile_template_to_server_profiles = (Send-OVRequest -Uri $Uri).members
         If ($server_profile_template_to_server_profiles) {
             $serverprofileconsistency = @{ }
             Foreach ($server_profile_template_to_server_profile in $server_profile_template_to_server_profiles) {  
             
-                $serverprofilename = (Send-HPOVRequest -Uri ($server_profile_template_to_server_profile.childUri) ) | % name
-                If ( ((Send-HPOVRequest -Uri ($server_profile_template_to_server_profile.childUri) ) | % templateCompliance) -eq "Compliant" ) {
+                $serverprofilename = (Send-OVRequest -Uri ($server_profile_template_to_server_profile.childUri) ) | % name
+                If ( ((Send-OVRequest -Uri ($server_profile_template_to_server_profile.childUri) ) | % templateCompliance) -eq "Compliant" ) {
                     $templateCompliance = "Consistent"
                 }
                 Else { $templateCompliance = "Inconsistent" }
@@ -96,11 +96,11 @@ function getspt {
               
         # OS Deployemnt
         $osdeploymenturi = $spt.osDeploymentSettings.osDeploymentPlanUri
-        If ($osdeploymenturi) { $osdeploymentname = (send-HPOVRequest -uri $osdeploymenturi).name } else { $osdeploymentname = "-" }
+        If ($osdeploymenturi) { $osdeploymentname = (send-OVRequest -uri $osdeploymenturi).name } else { $osdeploymentname = "-" }
 
         # FW
         $firmwareBaselineUri = $spt.firmware.firmwareBaselineUri
-        If ($firmwareBaselineUri) { $firmwareBaseline = (send-HPOVRequest -uri $firmwareBaselineUri).name } else { $firmwareBaseline = "-" }
+        If ($firmwareBaselineUri) { $firmwareBaseline = (send-OVRequest -uri $firmwareBaselineUri).name } else { $firmwareBaseline = "-" }
 
 
         # Network Connections         
@@ -110,7 +110,7 @@ function getspt {
             $_Connection = @{ }
             foreach ($connectionsetting in $connectionsettings) {
                 $connection1portID = " - $($connectionsetting.portId)"
-                $networkname_bandwidth = "``$((send-HPOVRequest -uri $connectionsetting.networkUri).name)`` - Allocated bandwidth: ``$($connectionsetting.requestedMbps/1000)Gb``"
+                $networkname_bandwidth = "``$((send-OVRequest -uri $connectionsetting.networkUri).name)`` - Allocated bandwidth: ``$($connectionsetting.requestedMbps/1000)Gb``"
                 $_connection.add($connection1portID, $networkname_bandwidth)
             }
         }
@@ -123,7 +123,7 @@ function getspt {
         If ($sanstoragevolumes) {
             foreach ($sanstoragevolume in $sanstoragevolumes) {
                 $sanstoragevolumelun = "LUN: ``$($sanstoragevolume.lunType)``"
-                $sanstoragevolumename = "- ``$((send-HPOVRequest -uri $sanstoragevolume.volumeUri).name)``"
+                $sanstoragevolumename = "- ``$((send-OVRequest -uri $sanstoragevolume.volumeUri).name)``"
                 $_sanstorage.add($sanstoragevolumename, $sanstoragevolumelun)
             }
         }
@@ -232,7 +232,7 @@ function getspt {
     # Return the result deleting SP and convert it to json
     #$script:resultsp = $result
     return $result | ConvertTo-Json
-    Disconnect-HPOVMgmt | out-null
+    Disconnect-OVMgmt | out-null
 
 
 }

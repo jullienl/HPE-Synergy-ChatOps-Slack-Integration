@@ -27,7 +27,7 @@ function delete-server {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials | out-null
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -37,7 +37,7 @@ function delete-server {
         return $result | ConvertTo-Json
     }
 
-    #import-HPOVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
+    #import-OVSSLCertificate -ApplianceConnection ($connectedSessions | ? {$_.name -eq $IP}) 
 
     # Added these lines to avoid the error: "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
     # due to an invalid Remote Certificate
@@ -59,7 +59,8 @@ function delete-server {
     # Verifying the SP is present
     Try { 
                 
-        $serverprofile = Get-HPOVserverprofile -Name $name -ErrorAction stop }
+        $serverprofile = Get-OVserverprofile -Name $name -ErrorAction stop 
+    }
     
     Catch {
 
@@ -67,7 +68,7 @@ function delete-server {
         # Set a failed result
         $result.success = $false
 
-        Disconnect-HPOVMgmt 
+        Disconnect-OVMgmt 
 
         # Return the result deleting SP and conver it to json
         #$script:resultsp = $result
@@ -78,9 +79,9 @@ function delete-server {
     # Turning off the server hadware and deleting the SP
     try {
                     
-        $serverprofile | stop-HPOVServer -Force -Confirm:$false -ErrorAction Stop | Wait-HPOVTaskComplete | Out-Null
+        $serverprofile | stop-OVServer -Force -Confirm:$false -ErrorAction Stop | Wait-OVTaskComplete | Out-Null
 
-        Remove-HPOVServerProfile -ServerProfile $name -force -Confirm:$false -ErrorAction stop | Out-Null
+        Remove-OVServerProfile -ServerProfile $name -force -Confirm:$false -ErrorAction stop #| Out-Null
             
         $result.output = "*$($name)* is being deleted" 
             
@@ -97,7 +98,7 @@ function delete-server {
 
     # Return the result deleting SP and convert it to json
     #$script:resultsp = $result
-    Disconnect-HPOVMgmt
+    Disconnect-OVMgmt
     return $result | ConvertTo-Json
 
 

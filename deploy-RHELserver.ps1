@@ -7,12 +7,12 @@ function deploy-rhelserver {
     (
         # Server name
         [Parameter(Mandatory = $true)]
-        $name # ="rh"
+        $name  #="rh"
     )
  
  
     # Server Profile Template name to use for the deployment
-    $serverprofiletemplate = "RHEL7.3 deployment with Streamer"
+    $serverprofiletemplate = "RHEL75-I3S"
 
 
     # OneView Credentials and IP
@@ -31,7 +31,8 @@ function deploy-rhelserver {
 
     #Connecting to the Synergy Composer
     Try {
-        Connect-HPOVMgmt -appliance $IP -Credential $credentials | out-null
+        Connect-OVMgmt -appliance $IP -Credential $credentials  | out-null
+         
     }
     Catch {
         $env = "I cannot connect to OneView ! Check my OneView connection settings using ``find env``" 
@@ -60,7 +61,7 @@ function deploy-rhelserver {
 
     # Verifying the SPT is present
     Try {
-        $spt = Get-HPOVServerProfileTemplate -Name $serverprofiletemplate  -ErrorAction Stop
+        $spt = Get-OVServerProfileTemplate -Name $serverprofiletemplate  -ErrorAction Stop
 
     }      
     catch {
@@ -69,7 +70,7 @@ function deploy-rhelserver {
         # Set a failed result
         $result.success = $false
 
-        Disconnect-HPOVMgmt 
+        Disconnect-OVMgmt 
 
         # Return the result deleting SP and conver it to json
         #$script:resultsp = $result
@@ -78,22 +79,33 @@ function deploy-rhelserver {
     }
  
     # Verifying the SP is not already present
-    If (  (Get-HPOVServerProfile -Name $name -ErrorAction Ignore) ) {
+    If (  (Get-OVServerProfile -Name $name -ErrorAction Ignore) ) {
         $result.output = "Deployment error ! A Server Profile *$($name)* already exists in OneView !"
         # Set a failed result
         $result.success = $false
 
-        Disconnect-HPOVMgmt 
+        Disconnect-OVMgmt 
 
         # Return the result deleting SP and conver it to json
         #$script:resultsp = $result
         return $result | ConvertTo-Json    
     }
 
+    $server = Get-OVServerProfileTemplate -Name $serverprofiletemplate | Get-OVServer -NoProfile | ? { $_.powerState -eq "off" -and $_.status -ne "critical" } | Sort-Object -Property status | Select -first 1
+  
+    # Verifying if a server hardware is available
+    If (-not $server ) {
+        $result.output = "Deployment error ! No Server Hardware is available to deploy this server in OneView !"
+        # Set a failed result
+        $result.success = $false
 
-    $server = Get-HPOVServerProfileTemplate -Name $serverprofiletemplate | Get-HPOVServer -NoProfile | ? { $_.powerState -eq "off" -and $_.status -eq "ok" } | Select -first 1
+        Disconnect-OVMgmt 
 
-    $osCustomAttributes = Get-HPOVOSDeploymentPlanAttribute -InputObject $spt
+        # Return the result deleting SP and conver it to json
+        #$script:resultsp = $result
+        return $result | ConvertTo-Json    
+    }
+    $osCustomAttributes = Get-OVOSDeploymentPlanAttribute -InputObject $spt
  
     $My_osCustomAttributes = $osCustomAttributes
 
@@ -123,11 +135,26 @@ function deploy-rhelserver {
 
     try {
          
-        New-HPOVServerProfile -Name $name -ServerProfileTemplate $spt -Server $server -OSDeploymentAttributes $My_osCustomAttributes  -AssignmentType server -ErrorAction Stop | Wait-HPOVTaskComplete | Out-Null
+        New-OVServerProfile -Name $name -ServerProfileTemplate $spt -Server $server -OSDeploymentAttributes $My_osCustomAttributes -AssignmentType server -Confirm:$False -ErrorAction Stop | Wait-OVTaskComplete | Out-Null
                
-        Get-HPOVServerProfile -Name $name | Start-HPOVServer | Out-Null
+        $sp = Get-OVServerProfile -Name $name
+        $taskuri = $sp.taskUri
         
-        $ip = (get-hpovserverprofile -Name $name).osDeploymentSettings.osCustomAttributes | ? name -eq Team0NIC1.ipaddress | % value
+        do {
+            $taskresult = Send-OVRequest -uri $taskuri
+            sleep 2 
+        } until ( $taskresult.taskState -eq "Completed" )
+        
+        Get-OVServerProfile -Name $name | Start-OVServer | Out-Null   
+
+        sleep 2
+                
+        If ( (Send-OVRequest -uri ($sp.serverHardwareUri)).powerstate -eq "Off") {
+
+            Get-OVServerProfile -Name $name | Start-OVServer | Out-Null 
+        }
+          
+        $ip = (get-OVserverprofile -Name $name).osDeploymentSettings.osCustomAttributes | ? name -eq Team0NIC1.ipaddress | % value
 
         $result.output = "*$($name)* has been created successfully, the server is now starting.`nI have assigned the IP address ``$($IP)`` to the server." 
 
@@ -144,7 +171,7 @@ function deploy-rhelserver {
 
     }
 
-    Disconnect-HPOVMgmt 
+    Disconnect-OVMgmt 
 
     # Return the result deleting SP and convert it to json
     #$script:resultsp = $result
